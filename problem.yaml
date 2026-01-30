@@ -1,0 +1,31 @@
+﻿problem:
+  polygon_name: "test-api"
+  name: "Two Sum"
+  timelimit_ms: 3000
+  memory_mb: 256
+
+statement:
+  language: "english"
+  legend_md: "assets/statement/legend.md"
+  input_md: "assets/statement/input.md"
+  output_md: "assets/statement/output.md"
+  notes_md: "assets/statement/notes.md"
+  # tutorial_md: "assets/statement/tutorial.md"
+  # images_dir: "assets/statement/images"
+
+files:
+  # checker_path: "files/checker/checker.cpp"
+  checker: "lcmp.cpp" # built-in checker: rcmp6.cpp / nyesno.cpp / lcmp.cpp
+  validator_path: "files/validator/validator.cpp"
+  solutions:
+    - path: "files/solutions/solution.cpp"
+      language: "cpp"
+      tag: "main"
+
+tests:
+  samples_path: "tests/samples.yaml"
+  manuals_path: "tests/manuals.yaml"
+  generators:
+    - path: "tests/generators/gen.cpp"
+      language: "cpp"
+      repeat: 5
