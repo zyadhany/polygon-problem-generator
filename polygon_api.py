@@ -5,6 +5,8 @@ import string
 import os
 from urllib.parse import urlsplit
 import requests
+from dotenv import load_dotenv
+load_dotenv()
 
 # set these once
 
@@ -33,11 +35,12 @@ def polygon_api_call(method_name: str, params: dict | None = None, timeout: int 
 
     # send the SAME sorted params + apiSig
     r = requests.get(url, params=items + [("apiSig", api_sig)], timeout=timeout)
-    return r.json()['result']
+    r.raise_for_status()
+    r = r.json()
+    if r['status'] != 'OK':
+        raise Exception(f"Polygon API error: {r}")
+    return r['result']
 
-# test
 if __name__ == "__main__":
-    r = polygon_api_call("problem.create", {"name": "test-api"})
+    r = polygon_api_call("problems.list")
     print(len(r))
-    # for k in r:
-    #     print(k)
