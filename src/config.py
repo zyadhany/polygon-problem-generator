@@ -118,7 +118,6 @@ def load_problem_config(path: str) -> LoadedConfig:
         tests = {}
 
     _require_str(_require(tests, "samples_path", "tests", errors), "tests.samples_path", errors)
-    _require_str(_require(tests, "manuals_path", "tests", errors), "tests.manuals_path", errors)
 
     generators = tests.get("generators", [])
     if not isinstance(generators, list):
@@ -131,8 +130,6 @@ def load_problem_config(path: str) -> LoadedConfig:
             continue
         _require_str(gen.get("path"), f"tests.generators[{idx}].path", errors)
         _require_str(gen.get("language"), f"tests.generators[{idx}].language", errors)
-        _require_int(gen.get("repeat"), f"tests.generators[{idx}].repeat", errors)
-
     if errors:
         raise ConfigError("\n".join(errors))
 
@@ -150,7 +147,6 @@ def load_problem_config(path: str) -> LoadedConfig:
         sol["path"] = _resolve_path(base_dir, sol.get("path"))
 
     tests["samples_path"] = _resolve_path(base_dir, tests.get("samples_path"))
-    tests["manuals_path"] = _resolve_path(base_dir, tests.get("manuals_path"))
     for gen in generators:
         gen["path"] = _resolve_path(base_dir, gen.get("path"))
 

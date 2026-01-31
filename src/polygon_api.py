@@ -50,16 +50,21 @@ def polygon_api_call(method_name: str, params: dict | None = None, timeout: int 
 
     r = requests.post(url, data=data, timeout=timeout)
 
-    # Polygon sometimes returns JSON even with HTTP 400
-    try:
+    ctype = (r.headers.get("Content-Type") or "").lower()
+
+    # Try JSON first (even if status_code != 200)
+    if "application/json" in ctype or r.text.lstrip().startswith("{"):
         j = r.json()
-    except Exception:
+        if j.get("status") != "OK":
+            raise RuntimeError(j.get("comment", str(j)))
+        return j.get("result", {})
+
+    # Fallback: plain text / HTML
+    if not r.ok:
         raise RuntimeError(f"HTTP {r.status_code}: {r.text}")
 
-    if j.get("status") != "OK":
-        raise RuntimeError(j.get("comment", str(j)))
-
-    return j.get("result", {})
+    # Some endpoints may return plain text on success
+    return r.text
 
 if __name__ == "__main__":
     r = polygon_api_call("problems.list")

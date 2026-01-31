@@ -1,2 +1,27 @@
-﻿- in: "tests/samples/sample1.in"
-  out: "tests/samples/sample1.out"
+﻿- in: |
+    4 8
+    2 7 5 1
+  out: |
+    2 4
+  example: "true"
+
+- in: |
+    5 10
+    1 2 3 4 5
+  out: |
+    IMPOSSIBLE
+  example: "true"
+
+- in: |
+    6 0
+    -3 1 2 -1 4 3
+  out: |
+    1 6
+
+- in: |
+    3 6
+    3 3 3
+
+- in: |
+    2 -5
+    -2 -3

@@ -66,8 +66,14 @@ def _load_samples(samples_path: str) -> list[dict[str, str]]:
     for idx, sample in enumerate(samples):
         if not isinstance(sample, dict):
             raise ConfigError(f"Expected object for samples[{idx}]")
-        if "in" not in sample or "out" not in sample:
-            raise ConfigError(f"Missing in/out for samples[{idx}]")
+        if "in" not in sample:
+            raise ConfigError(f"Missing in for samples[{idx}]")
+        if not isinstance(sample["in"], str):
+            raise ConfigError(f"Expected string for samples[{idx}].in")
+        if "out" in sample and not isinstance(sample["out"], str):
+            raise ConfigError(f"Expected string for samples[{idx}].out")
+        if "example" in  sample and sample["example"] not in ("true", "false"):
+            raise ConfigError(f"Expected 'true' or 'false' for samples[{idx}].example")
     return samples
 
 
@@ -80,6 +86,20 @@ def _load_manuals(manuals_path: str) -> list[dict[str, str]]:
             raise ConfigError(f"Missing in for manuals[{idx}]")
     return manuals
 
+
+def add_file_source(problem_id: int, file_path: str, dry_run: bool = False, verbose: bool = False) -> None:
+    file_name = Path(file_path).name
+    _call(
+        "save_file",
+        {
+            "problemId": problem_id,
+            "type": "source",
+            "name": file_name,
+            "file": _read_text(file_path),
+        },
+        dry_run,
+        verbose,
+    )
 
 def build(config_path: str, dry_run: bool, verbose: bool) -> None:
     cfg = load_problem_config(config_path)
@@ -169,9 +189,10 @@ def build(config_path: str, dry_run: bool, verbose: bool) -> None:
 
     def stage4() -> None:
         pid = state["problem_id"]
-        checker = files.get("checker")
-        _call(
-            "checker_set",
+        checker = "std::" + files.get("checker")
+
+        ret = _call(
+            "set_checker",
             {
                 "problemId": pid,
                 "checker": checker,
@@ -184,19 +205,10 @@ def build(config_path: str, dry_run: bool, verbose: bool) -> None:
         pid = state["problem_id"]
         validator_path = files.get("validator_path")
         validator_name = Path(validator_path).name
+
+        add_file_source(pid, validator_path, dry_run, verbose)
         _call(
-            "files_save",
-            {
-                "problemId": pid,
-                "type": "validator",
-                "name": validator_name,
-                "content": _read_text(validator_path),
-            },
-            dry_run,
-            verbose,
-        )
-        _call(
-            "validator_set",
+            "set_validator",
             {
                 "problemId": pid,
                 "validator": validator_name,
@@ -208,33 +220,19 @@ def build(config_path: str, dry_run: bool, verbose: bool) -> None:
     def stage6() -> None:
         pid = state["problem_id"]
         solutions = files.get("solutions", [])
-        main = next((s for s in solutions if s.get("tag") == "main"), None)
+        main = next((s for s in solutions if s.get("tag") == "MA"), None)
         if not main:
-            raise BuildError("No solution with tag == 'main' found")
+            raise BuildError("No solution with tag == 'MA' found")
 
         sol_path = main["path"]
         sol_name = Path(sol_path).name
         result = _call(
-            "solution_add",
+            "save_solution",
             {
                 "problemId": pid,
                 "name": sol_name,
-                "language": main["language"],
-                "content": _read_text(sol_path),
+                "file": _read_text(sol_path),
                 "tag": main.get("tag"),
-            },
-            dry_run,
-            verbose,
-        )
-
-        sol_id = None
-        if not dry_run and isinstance(result, dict):
-            sol_id = result.get("id") or result.get("solutionId")
-        _call(
-            "solution_set_main",
-            {
-                "problemId": pid,
-                "solutionId": sol_id or sol_name,
             },
             dry_run,
             verbose,
@@ -243,79 +241,129 @@ def build(config_path: str, dry_run: bool, verbose: bool) -> None:
     def stage7() -> None:
         pid = state["problem_id"]
         samples = _load_samples(tests.get("samples_path"))
-        manuals = _load_manuals(tests.get("manuals_path"))
+
+        script_cmd = _call(
+            "script",
+            {"problemId": pid,"testset": "tests",},
+            dry_run,
+            verbose,
+        )
+        if script_cmd not in (None, ""):
+            _call(
+                "save_script",
+                {
+                    "problemId": pid,
+                    "testset": "tests",
+                    "source": " ", 
+                },
+                dry_run,
+                verbose,
+            )
 
         for idx, sample in enumerate(samples, start=1):
-            sample_in = _resolve_path(cfg.base_dir, sample["in"])
-            sample_out = _resolve_path(cfg.base_dir, sample["out"])
+            sample_in = sample.get("in")
+            sample_out = sample.get("out", "")
+            is_sample = sample.get("example", "false")
+               
             _call(
-                "tests_add",
+                "save_test",
                 {
                     "problemId": pid,
-                    "testName": f"sample_{idx}",
-                    "input": _read_text(sample_in),
-                    "output": _read_text(sample_out),
-                    "type": "sample",
+                    "testset": "tests",
+                    "testIndex": idx,
+                    "testInput": sample_in,
+                    "testUseInStatements": is_sample,
+                    "testOutputForStatements": sample_out, 
+                },
+                dry_run,
+                verbose,
+            )
+        
+        if script_cmd not in (None, ""):
+            _call(
+                "save_script",
+                {
+                    "problemId": pid,
+                    "testset": "tests",
+                    "source": script_cmd, 
                 },
                 dry_run,
                 verbose,
             )
 
-        for idx, manual in enumerate(manuals, start=1):
-            manual_in = _resolve_path(cfg.base_dir, manual["in"])
-            _call(
-                "tests_add_manual",
-                {
-                    "problemId": pid,
-                    "testName": f"manual_{idx}",
-                    "input": _read_text(manual_in),
-                },
-                dry_run,
-                verbose,
-            )
-
+    def stage8() -> None:
+        pid = state["problem_id"]
         generators = tests.get("generators", [])
+
+        script_cmd = ""
+        cnt = 1
+
         for gen_idx, gen in enumerate(generators, start=1):
             gen_path = gen["path"]
-            gen_name = Path(gen_path).name
-            _call(
-                "files_save",
-                {
-                    "problemId": pid,
-                    "type": "generator",
-                    "name": gen_name,
-                    "content": _read_text(gen_path),
-                },
-                dry_run,
-                verbose,
-            )
+            gen_name = Path(gen_path).stem
+            repeat = gen.get("repeat", 1)
+            cmd = gen.get("cmd", "")
 
-            repeat = gen["repeat"]
-            for seed in range(1, repeat + 1):
-                test_name = f"gen_{gen_idx}_{seed}"
-                cmd = f"./gen {seed}"
-                _call(
-                    "tests_generate",
-                    {
-                        "problemId": pid,
-                        "generator": gen_name,
-                        "commandLine": cmd,
-                        "testName": test_name,
-                        "seed": seed,
-                    },
-                    dry_run,
-                    verbose,
-                )
+            if cmd not in ("", None):
+                script_cmd += f"\n{cmd}"
+            else:
+                """
+                    <#list 1..10 as i >
+                        igen --m 10 ${i} > $ 
+                    </#list>
+                """
+                script_cmd += f"\n<#list {cnt}..{cnt + repeat - 1} as i >\n"
+                script_cmd += f"   {gen_name} ${{i}} > $\n"
+                script_cmd += "</#list>\n"
+                cnt += repeat
+            
+            add_file_source(pid, gen_path, dry_run, verbose)
+        _call(
+            "save_script",
+            {
+                "problemId": pid,
+                "testset": "tests",
+                "source": script_cmd, 
+            },
+            dry_run,
+            verbose,
+        )
+
+    def stage9() -> None:
+        pid = state["problem_id"]
+        _call(
+            "commit_changes",
+            {
+                "problemId": pid,
+                "minorChanges": "true", 
+            },
+            dry_run,
+            verbose,
+        )
+
+        _call(
+            "build_package",
+            {
+                "problemId": pid,
+                "full": "false",
+                "verify": "true", 
+            },
+            dry_run,
+            verbose,
+        )
+        pass
 
 
     _stage(1, "Problem init (by polygon_id)", stage1)
-    _stage(2, "Basic settings", stage2)
-    _stage(3, "English statement", stage3)
+    # _stage(2, "Basic settings", stage2)
+    # _stage(3, "English statement", stage3)
+    # _stage(4, "Checker", stage4)
+    # _stage(5, "Validator", stage5)
+    # _stage(6, "Main solution", stage6)
+    # _stage(7, "Manual_Tests", stage7)
+    # _stage(8, "Generated_Tests", stage8)
+    _stage(9, "commit and Package", stage9)
     exit(0)
-    _stage(4, "Checker", stage4)
-    _stage(5, "Validator", stage5)
-    _stage(6, "Main solution", stage6)
-    _stage(7, "Tests", stage7)
 
     print("Build completed.")
 

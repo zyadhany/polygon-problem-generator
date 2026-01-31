@@ -4,6 +4,10 @@
   timelimit_ms: 3000
   memory_mb: 256
 
+access:
+  - handle: "codeforces"
+  
+
 statement:
   language: "english"
   legend_md: "assets/statement/legend.md"
@@ -20,12 +24,13 @@ files:
   solutions:
     - path: "files/solutions/solution.cpp"
       language: "cpp"
-      tag: "main"
+      tag: "MA" # solution’s tag (MA - Main, OK, RJ, TL, TO - Time Limit or Accepted, WA, PE, ML or RE)
 
 tests:
   samples_path: "tests/samples.yaml"
-  manuals_path: "tests/manuals.yaml"
   generators:
     - path: "tests/generators/gen.cpp"
       language: "cpp"
-      repeat: 5
+      repeat: 15 # if cmd is empty, it will run with default arguments
+      cmd: ""
+    

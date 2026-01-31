@@ -56,12 +56,16 @@ METHODS: dict[str, tuple[str, bool]] = {
     "save_test": ("problem.saveTest", True),
     "test_input": ("problem.testInput", True),
     "test_answer": ("problem.testAnswer", True),
+    "view_test_group": ("problem.viewTestGroup", True),
 
     # Optional validator/checker tests (only if you need them)
     "validator_tests": ("problem.validatorTests", True),
     "save_validator_test": ("problem.saveValidatorTest", True),
     "checker_tests": ("problem.checkerTests", True),
     "save_checker_test": ("problem.saveCheckerTest", True),
+
+    # Packages
+    "build_package" : ("problem.buildPackage", True),
 }
 
 

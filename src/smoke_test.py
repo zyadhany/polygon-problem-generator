@@ -30,7 +30,6 @@ def set_english_statement_name(problem_id: str) -> None:
         "lang": "english",
         "encoding": "UTF-8",
         "name": "Two Sum",
-        "legend": "asdasdasdas  \n dfg dfg \n\n 20dasdda",
     })
     print(resp)
 
@@ -38,8 +37,12 @@ def set_english_statement_name(problem_id: str) -> None:
     #     raise RuntimeError(f"problem.saveStatement failed: {resp}")
 
 def main() -> None:
+    tests = polygon_api_call("problems.list", {
+        "name": "test-api",
+    })
+    print(tests)
     # set_limits("506229", 2000, 256)
-    set_english_statement_name("506229")
+    # set_english_statement_name("506229")
     # method_name = get_method("update_info")
     # params =  {
     #     "problemId": 506229,
